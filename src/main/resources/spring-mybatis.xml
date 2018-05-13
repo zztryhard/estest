@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.1.xsd
+
+
+	http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <bean id="uniqueKey" class="com.mutongyun.product.common.key.UniqueKeyGenerator">
+        <constructor-arg name="datacenterId" value="1"/>
+        <constructor-arg name="workerId" value="1"/>
+    </bean>
+
+    <!-- 数据源配置, 使用 BoneCP 数据库连接池 -->
+    <bean id="dataSourceLongHu" class="com.alibaba.druid.pool.DruidDataSource" init-method="init" destroy-method="close">
+        <property name="driverClassName" value="${jdbc.driver}"/>
+        <property name="url" value="${jdbc.longhu.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <property name="initialSize" value="1"/>
+        <property name="minIdle" value="3"/>
+        <property name="maxActive" value="20"/>
+        <property name="maxWait" value="60000"/>
+        <property name="timeBetweenEvictionRunsMillis" value="60000"/>
+        <property name="minEvictableIdleTimeMillis" value="300000"/>
+        <property name="validationQuery" value="${jdbc.test.sql}"/>
+        <property name="testWhileIdle" value="true"/>
+        <property name="testOnBorrow" value="false"/>
+        <property name="testOnReturn" value="false"/>
+        <property name="filters" value="wall"/>
+    </bean>
+    <!-- 数据库连接池 -->  
+    <bean id="dynamicDataSource" class="es.test.base.utils.DynamicDataSource">  
+        <property name="targetDataSources">  
+            <map key-type="java.lang.String">  
+                <entry value-ref="dataSourceLongHu" key="dataSourceLongHu" />  
+            </map>  
+        </property>  
+  
+        <!-- 默认使用productDataSource的数据源 -->  
+        <property name="defaultTargetDataSource" ref="dataSourceLongHu" />  
+    </bean>  
+    
+    
+    <!-- Mybatis Jpa SessionFactory -->
+    <bean id="sessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dynamicDataSource"/>
+        <property name="typeAliasesPackage" value="es.test.dao"/>
+        <property name="typeAliasesSuperType" value="com.mutongyun.product.common.persistent.BaseEntity"/>
+        <!--<property name="mapperLocations" value="classpath*:mappers/**/*.xml"/>-->
+        <property name="configLocation" value="classpath:/mybatis-config.xml"/>
+        <property name="plugins">
+            <array>
+                <bean class="com.mutongyun.product.common.mybatis.interceptor.PerformanceInterceptor"/>
+                <bean class="com.mutongyun.product.common.mybatis.interceptor.PageHandlerInterceptor"/>
+                <bean class="com.mutongyun.product.common.mybatis.interceptor.UniqueKeyAutoReplenishInterceptor"/>
+            </array>
+        </property>
+    </bean>
+
+    <!-- DAO接口所在包名，Spring会自动查找其下的类 -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="es.test"/>
+        <property name="sqlSessionFactoryBeanName" value="sessionFactory"/>
+        <property name="annotationClass" value="com.mutongyun.product.common.annotation.MyBatisDao"/>
+    </bean>
+
+    <!--transaction config -->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dynamicDataSource"/>
+    </bean>
+    <!-- 扫描@Transactional注解的类定义事务 -->
+    <tx:annotation-driven mode="proxy" transaction-manager="transactionManager" proxy-target-class="true"/>
+
+</beans>
