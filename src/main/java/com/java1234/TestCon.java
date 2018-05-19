@@ -23,4 +23,7 @@ public class TestCon {
 		System.out.println(client);
 		client.close();
 	}
+	public void test(){
+		System.out.println("你说的是什么");
+	}
 }
